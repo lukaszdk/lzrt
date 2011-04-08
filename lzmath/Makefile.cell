@@ -1,0 +1,27 @@
+
+OBJS := lzvector.o lzmatrix.o lztransform.o lzpoint.o lzray.o lznormal.o
+LIB := liblzmath_cell.a
+
+CELL_OBJS := $(addsuffix _cell.o, $(basename $(OBJS)))
+
+CELL_DIR = /opt/cell/
+CC = $(CELL_DIR)toolchain/bin/ppu32-g++
+AR := $(CELL_DIR)toolchain/bin/ppu-ar
+
+CFLAGS := -ansi -Wall
+LDFLAGS := -L. -llzmath
+INCS := -I.
+
+all: $(LIB)
+
+%_cell.o: %.cpp
+	$(CC) $(INCS) $(CFLAGS) -c $< -o $@
+
+clean:
+	rm -f $(TEST_OBJS) $(CELL_OBJS) $(LIB) ${TEST_BIN}
+
+
+$(LIB): $(CELL_OBJS)
+	$(AR) rcu $(LIB) $(CELL_OBJS)
+
+

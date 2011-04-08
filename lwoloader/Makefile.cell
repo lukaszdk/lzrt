@@ -1,0 +1,35 @@
+OBJS  = lwob.o lwio.o list.o surface.o pntspols.o vecmath.o clip.o 
+OBJS += envelope.o lwoloader.o lwo2.o vmap.o
+
+CELL_OBJS := $(addsuffix _cell.o, $(basename $(OBJS)))
+
+LIB := liblwoloader_cell.a
+
+CELL_DIR = /opt/cell/
+
+CC = $(CELL_DIR)toolchain/bin/ppu32-gcc
+CPP = $(CELL_DIR)toolchain/bin/ppu32-g++
+AR := $(CELL_DIR)toolchain/bin/ppu-ar
+
+CELL_DIR = /opt/cell/
+
+INCLUDES := -I. -I../lzmath -I/usr/include/ $(shell sdl-config --cflags)
+INCLUDES += -I$(CELL_DIR)sysroot/usr/include -I$(CELL_DIR)sysroot/opt/cell/sdk/usr/include
+
+CPPFLAGS := -D_CELL $(INCLUDES)
+LDFLAGS := $(shell sdl-config --libs) -L../lzmath -lGL -lGLU -llzmath
+
+all: $(LIB)
+
+%_cell.o: %.cpp
+	$(CPP) -c $(CPPFLAGS) $< -o $@
+
+%_cell.o: %.c
+	$(CC) -c $(CPPFLAGS) $< -o $@
+
+$(LIB): $(CELL_OBJS)
+	$(AR) rcu $(LIB) $(CELL_OBJS)
+
+clean:
+	rm -f $(LIB) $(CELL_OBJS)
+

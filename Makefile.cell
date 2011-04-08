@@ -1,0 +1,79 @@
+
+
+PS3_HOSTNAME := ps3
+PS3_PATH := $(PS3_HOSTNAME):/home/lukasz/lzrt/lzrt
+
+BIN := lzrt-cell
+
+OBJS := main.o imagebuffer/framebuffer.o imagebuffer/imagebuffer.o
+OBJS += mesh/aabb.o mesh/custommesh.o mesh/lwomesh.o
+OBJS += scene/camera.o scene/kdbuild.o scene/kdbuildjob.o scene/kdtravers.o  
+OBJS += scene/meshtransform.o scene/meshtransformjob.o scene/polytest.o scene/raygen.o scene/raytracejob.o 
+OBJS += scene/scene.o util/luabind.o util/threadpool.o util/timer.o
+
+CELL_OBJS := $(addsuffix _cell.o, $(basename $(OBJS)))
+CELL_OBJS += spu/ppecallbacks_cell.o spu/speprogram_cell.o
+
+
+SPE_OBJS := spu/kernels/raygen.o spu/kernels/kdbuild.o spu/kernels/polytest.o spu/kernels/kdtravers.o
+SPE_OBJS += spu/kernels/polypartition.o spu/kernels/meshtransform.o
+
+OBJS += $(PPC_OBJS)
+
+CELL_DIR = /opt/cell/
+
+CPP = $(CELL_DIR)toolchain/bin/ppu32-g++
+LD = $(CELL_DIR)toolchain/bin/ppu32-ld
+
+INCLUDES := -I. -Ilzmath -Ilwoloader 
+INCLUDES += -Ipowerpc/include/SDL -Ipowerpc/include/lua50 -Ipowerpc/include
+INCLUDES += -I$(CELL_DIR)sysroot/usr/include -I$(CELL_DIR)sysroot/opt/cell/sdk/usr/include
+
+LIBS     := -llzmath_cell -llwoloader_cell -lSDL -lSDL_ttf -llua50 -llualib50 -lluabind -lspe2 -lpthread -ldl 
+LDFLAGS  := -Wl,-rpath-link,powerpc/lib -g -Lpowerpc/lib -Llzmath -Llwoloader $(LIBS)
+CPPFLAGS := -D_CELL -g -mabi=altivec -maltivec -m32 -O3  $(INCLUDES)
+
+all: $(BIN)
+
+lzmath/liblzmath_cell.a:
+	make -C lzmath -f Makefile.cell
+
+lwoloader/liblwoloader_cell.a:
+	make -C lwoloader -f Makefile.cell
+
+%.o: %.c
+	make -C spu/kernels/ $(notdir $@)
+
+%_cell.o: %.cpp
+	$(CPP) -c $(CPPFLAGS) $(INCLUDE) $< -o $@
+
+$(BIN): $(CELL_OBJS) $(SPE_OBJS) lzmath/liblzmath_cell.a lwoloader/liblwoloader_cell.a
+	$(CPP) $(SPE_OBJS) $(CELL_OBJS) -o $(BIN) $(LDFLAGS)
+
+copy: $(BIN) 
+	scp $(BIN) $(PS3_PATH)
+
+kill:
+	ssh $(PS3_HOSTNAME) "killall -9 lzrt"
+
+clean:
+	rm -f $(BIN) $(CELL_OBJS) $(SPE_OBJS)
+
+clean-all:
+	rm -f $(BIN) $(CELL_OBJS) $(SPE_OBJS)
+	make -C lzmath -f Makefile.cell clean
+	make -C lwoloader -f Makefile.cell clean
+	
+
+run: all
+	./$(BIN) -m ../scenes/porche911.lua
+
+drun: all
+	gdb --args $(BIN) -m ../scenes/porche911.lua
+
+lines:
+	@echo "Lines: " `wc -l *.h *.cpp | grep total`
+
+.SUFFIXES:
+
+
